@@ -3,13 +3,12 @@ from config import CONFIG as cfg
 
 
 def participate(experiment, alternatives, client_id,
-    force=None,
-    record_force=False,
-    traffic_fraction=None,
-    prefetch=False,
-    datetime=None,
-    redis=None):
-
+                force=None,
+                record_force=False,
+                traffic_fraction=None,
+                prefetch=False,
+                datetime=None,
+                redis=None):
     exp = Experiment.find_or_create(experiment, alternatives, traffic_fraction=traffic_fraction, redis=redis)
 
     alt = None
@@ -32,15 +31,15 @@ def participate(experiment, alternatives, client_id,
 
 
 def convert(experiment, client_id,
-    kpi=None,
-    datetime=None,
-    redis=None):
-
+            kpi=None,
+            kpi_value=None,
+            datetime=None,
+            redis=None):
     exp = Experiment.find(experiment, redis=redis)
 
     if cfg.get('enabled', True):
         client = Client(client_id, redis=redis)
-        alt = exp.convert(client, dt=datetime, kpi=kpi)
+        alt = exp.convert(client, dt=datetime, kpi=kpi, kpi_value=kpi_value)
     else:
         alt = exp.control
 

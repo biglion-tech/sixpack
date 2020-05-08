@@ -7,7 +7,7 @@ import re
 import redis
 
 from config import CONFIG as cfg
-from db import _key, msetbit, sequential_id, first_key_with_bit_set
+from db import _key, msetbit, mincrby, sequential_id, first_key_with_bit_set
 
 # This is pretty restrictive, but we can always relax it later.
 VALID_EXPERIMENT_ALTERNATIVE_RE = re.compile(r"^[a-z0-9][a-z0-9\-_]*$", re.I)
@@ -24,9 +24,9 @@ class Client(object):
 class Experiment(object):
 
     def __init__(self, name, alternatives,
-        winner=False,
-        traffic_fraction=False,
-        redis=None):
+                 winner=False,
+                 traffic_fraction=False,
+                 redis=None):
 
         if len(alternatives) < 2:
             raise ValueError('experiments require at least two alternatives')
@@ -69,7 +69,7 @@ class Experiment(object):
 
         if slim:
             for key in ['period', 'kpi', 'kpis', 'has_winner']:
-                del(objectified[key])
+                del (objectified[key])
 
         return objectified
 
@@ -234,7 +234,7 @@ class Experiment(object):
     def is_paused(self):
         return self.redis.hexists(self.key(), 'paused')
 
-    def convert(self, client, dt=None, kpi=None):
+    def convert(self, client, dt=None, kpi=None, kpi_value=None):
         if self.is_archived():
             raise ValueError('this experiment is archived and can no longer be updated')
 
@@ -254,7 +254,7 @@ class Experiment(object):
             self.add_kpi(kpi)
 
         if not self.existing_conversion(client):
-            alternative.record_conversion(client, dt=dt)
+            alternative.record_conversion(client, dt=dt, kpi_value=kpi_value)
 
         return alternative
 
@@ -412,7 +412,7 @@ class Experiment(object):
 
     @classmethod
     def find(cls, experiment_name,
-        redis=None):
+             redis=None):
 
         if not redis.sismember(_key("e"), experiment_name):
             raise ValueError('experiment does not exist')
@@ -423,8 +423,8 @@ class Experiment(object):
 
     @classmethod
     def find_or_create(cls, experiment_name, alternatives,
-        traffic_fraction=None,
-        redis=None):
+                       traffic_fraction=None,
+                       redis=None):
 
         if len(alternatives) < 2:
             raise ValueError('experiments require at least two alternatives')
@@ -655,7 +655,7 @@ class Alternative(object):
         ]
         msetbit(keys=keys, args=([self.experiment.sequential_id(client), 1] * len(keys)))
 
-    def record_conversion(self, client, dt=None):
+    def record_conversion(self, client, dt=None, kpi_value=None):
         """Record a user's conversion in a test along with a given variation"""
         if dt is None:
             date = datetime.now()
@@ -682,7 +682,10 @@ class Alternative(object):
             _key("c:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m'))),
             _key("c:{0}:{1}:users:{2}".format(experiment_key, self.name, date.strftime('%Y-%m-%d'))),
         ]
-        msetbit(keys=keys, args=([self.experiment.sequential_id(client), 1] * len(keys)))
+        if kpi_value is not None:
+            mincrby(keys=keys, args=([self.experiment.sequential_id(client), kpi_value] * len(keys)))
+        else:
+            msetbit(keys=keys, args=([self.experiment.sequential_id(client), 1] * len(keys)))
 
     def conversion_rate(self):
         try:
@@ -717,10 +720,10 @@ class Alternative(object):
         expected_alt_failures = self.participant_count() - expected_alt_conversions
 
         try:
-            g_stat = 2 * (      alt_conversions * log(alt_conversions / expected_alt_conversions) \
-                        +   alt_failures * log(alt_failures / expected_alt_failures) \
-                        +   control_conversions * log(control_conversions / expected_control_conversions) \
-                        +   control_failures * log(control_failures / expected_control_failures))
+            g_stat = 2 * (alt_conversions * log(alt_conversions / expected_alt_conversions) \
+                          + alt_failures * log(alt_failures / expected_alt_failures) \
+                          + control_conversions * log(control_conversions / expected_control_conversions) \
+                          + control_failures * log(control_failures / expected_control_failures))
 
         except (ValueError, ZeroDivisionError):
             return 0
@@ -739,7 +742,8 @@ class Alternative(object):
         c = control.participant_count()
 
         try:
-            std_dev = pow(((ctr_e / pow(ctr_c, 3)) * ((e * ctr_e) + (c * ctr_c) - (ctr_c * ctr_e) * (c + e)) / (c * e)), 0.5)
+            std_dev = pow(((ctr_e / pow(ctr_c, 3)) * ((e * ctr_e) + (c * ctr_c) - (ctr_c * ctr_e) * (c + e)) / (c * e)),
+                          0.5)
             z_score = ((ctr_e / ctr_c) - 1) / std_dev
             return z_score
         except ZeroDivisionError:
