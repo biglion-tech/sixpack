@@ -28,6 +28,13 @@ def json_success(resp, request):
     return _json_resp(resp, request, 200)  # Always a 200 when success is called
 
 
+def json_bot_success(resp, request):
+    default = {'status': 'ok'}
+    resp = dict(default.items() + resp.items())
+
+    return _json_resp(resp, request, 204)  # Special for bots
+
+
 def _json_resp(in_dict, request, status=None):
     headers = {'Content-Type': 'application/json'}
     data = json.dumps(in_dict)

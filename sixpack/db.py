@@ -58,7 +58,7 @@ msetbit = REDIS.register_script("""
 
 mincrby = REDIS.register_script("""
     for index, value in ipairs(KEYS) do
-        redis.call('incrby', value, ARGV[(index - 1) * 2 + 1], ARGV[(index - 1) * 2 + 2])
+        redis.call('incrby', value, ARGV[index])
     end
     return redis.status_reply('ok')
 """)

@@ -1,4 +1,15 @@
 var Chart;
+
+function checkKpiMode(kpi) {
+  if (kpi === "purchase") {
+    return true;
+  } else if (kpi === "money") {
+    return true;
+  }
+
+  return false;
+}
+
 $(function () {
 
   Chart = function (experiment, data, callback) {
@@ -65,13 +76,18 @@ $(function () {
       } else {
         my.xAxis.ticks(xValues.length)
       }
-        
+
+      var fmt =  d3.format(".1%");
+      if (checkKpiMode(kpi)) {
+        fmt =  d3.format(".1d");
+      }
+
       my.yAxis = d3.svg.axis()
         .scale(my.yScale)
         .ticks(yValues.length)
         .tickValues(yValues)
         .tickSize(0)
-        .tickFormat(d3.format(".1%"))
+        .tickFormat(fmt)
         .orient("left");
     };
 
@@ -137,7 +153,13 @@ $(function () {
           });
 
           // Show the tooltip
-          var pct = (Math.round(d.close * 1000) / 10) + '%',
+          var mnoz = 1000;
+          var appender = "%";
+          if (checkKpiMode(kpi)) {
+            mnoz = 10;
+            appender = "";
+          }
+          var pct = (Math.round(d.close * mnoz) / 10) + appender,
               date = new Date(d.date),
               month = ['Jan.', 'Feb.', 'March', 'April', 'May', 'June', 'July', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'],
               dateString = month[date.getMonth()] + ' ' + date.getDate() + ', ' + date.getFullYear(),
@@ -283,6 +305,10 @@ $(function () {
           cumulative.conversions += period.conversions;
 
           rate = Number(cumulative.conversions / cumulative.participants).toFixed(5);
+          if (checkKpiMode(kpi)) {
+            rate = Number(cumulative.conversions).toFixed(5);
+          }
+
           if (isNaN(rate)) rate = 0.00;
           rate_data.push([period.date, rate]);
         });

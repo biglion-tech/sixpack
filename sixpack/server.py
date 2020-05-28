@@ -25,7 +25,7 @@ except ConnectionError:
     sys.exit()
 
 from models import Experiment, Client
-from utils import service_unavailable_on_connection_error, json_error, json_success
+from utils import service_unavailable_on_connection_error, json_error, json_success, json_bot_success
 
 
 class CORSMiddleware(object):
@@ -194,6 +194,8 @@ class Sixpack(object):
 
     @service_unavailable_on_connection_error
     def on_participate(self, request):
+        if should_exclude_visitor(request):
+            return json_bot_success({'excluded': 'true'}, request)
         alts = request.args.getlist('alternatives')
         experiment_name = request.args.get('experiment')
         force = request.args.get('force')
